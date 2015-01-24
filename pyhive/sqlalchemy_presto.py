@@ -207,6 +207,7 @@ class PrestoDialect(default.DefaultDialect):
     name = 'presto'
     driver = 'rest'
     preparer = PrestoIdentifierPreparer
+    statement_compiler = PrestoCompiler
     supports_alter = False
     supports_pk_autoincrement = False
     supports_default_values = False
