@@ -13,9 +13,40 @@ from sqlalchemy import exc
 from sqlalchemy import types
 from sqlalchemy import util
 from sqlalchemy.engine import default
-from sqlalchemy.sql import compiler
+from sqlalchemy.sql import compiler, expression, type_api, elements
+from sqlalchemy.util.langhelpers import public_factory
 import re
 import sqlalchemy
+
+try:
+    from sqlalchemy.sql.compiler import SQLCompiler
+except ImportError:
+    from sqlalchemy.sql.compiler import DefaultCompiler as SQLCompiler
+
+
+class JsonExtractScalar(expression.ColumnElement):
+    __visit_name__ = 'json_extract_scalar'
+
+    def __init__(self, column, json_field, type_):
+        self.type = type_api.to_instance(type_)
+        self.column_clause = elements.ColumnClause(column, type_=None)
+        self.json_field_clause = elements._literal_as_binds(json_field, type_=None)
+        self.typeclause = elements.TypeClause(self.type)
+
+
+class PrestoCompiler(SQLCompiler):
+    def __init__(self, *args, **kwargs):
+        super(PrestoCompiler, self).__init__(*args, **kwargs)
+
+    def visit_json_extract_scalar(self, json_extract, **kwargs):
+        return "json_extract_scalar(to_json(%s), %s)" % \
+            (json_extract.column_clause._compiler_dispatch(self, **kwargs),
+             json_extract.json_field_clause._compiler_dispatch(self, **kwargs))
+
+
+json_extract_scalar = public_factory(
+    JsonExtractScalar, ".expression.json_extract_scalar"
+)
 
 
 class PrestoIdentifierPreparer(compiler.IdentifierPreparer):
@@ -91,6 +122,7 @@ class PrestoIdentifierPreparer(compiler.IdentifierPreparer):
         'is',
         'join',
         'json',
+        'json_extract_scalar',
         'last',
         'left',
         'like',
